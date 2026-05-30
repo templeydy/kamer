@@ -3,7 +3,9 @@ export interface Agent {
   id: string;
   name: string;
   description: string;
-  model: 'claude' | 'openai' | 'gemini' | 'ollama';
+  model: string;                    // 支持自定义模型名称
+  apiKey?: string;                  // 可选 API Key（优先于环境变量）
+  baseUrl?: string;                 // 自定义 API 地址（如 OpenAI 兼容接口）
   systemPrompt: string;
   skills: string[];
   mcpServers: string[];

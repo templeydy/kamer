@@ -1,9 +1,9 @@
 import type { ChatOptions, LLMResponse, Message } from './types';
 
 export interface LLMConfig {
-  model: 'claude' | 'openai' | 'gemini' | 'ollama';
+  model: string;  // 支持自定义模型名称
   apiKey?: string;
-  baseUrl?: string;
+  baseUrl?: string;  // 自定义 API 地址
 }
 
 export class LLMAdapter {
@@ -30,7 +30,9 @@ export class LLMAdapter {
     const apiKey = this.config.apiKey || process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const baseUrl = this.config.baseUrl || 'https://api.anthropic.com';
+
+    const response = await fetch(`${baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +66,9 @@ export class LLMAdapter {
     const apiKey = this.config.apiKey || process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY not set');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const baseUrl = this.config.baseUrl || 'https://api.openai.com';
+
+    const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

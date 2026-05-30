@@ -29,7 +29,8 @@ export class Runtime {
 
     const llmAdapter = new LLMAdapter({
       model: agentConfig.model,
-      apiKey: process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY,
+      apiKey: agentConfig.apiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY,
+      baseUrl: agentConfig.baseUrl,
     });
 
     const brain = new AgentBrain(agentConfig, llmAdapter);
