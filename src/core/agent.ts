@@ -1,9 +1,10 @@
-import type { Agent, Message, LLMResponse, ToolCall, ToolExecutionResult, ExecutionState, PermissionPolicy, PermissionCheck, PermissionConfig } from './types';
+import type { Agent, Message, LLMResponse, ToolCall, ToolExecutionResult, ExecutionState, PermissionPolicy, PermissionCheck, PermissionConfig, HookEvent, HookContext } from './types';
 import { LLMAdapter } from './llm-adapter';
 import { Memory } from './memory';
 import type { EmbeddingService } from './embedding';
 import type { SkillEngine } from './skill-engine';
 import type { MCPClient } from './mcp-client';
+import { HookManager, createToolLogger } from './hook-manager';
 
 export class AgentBrain {
   private agent: Agent;
@@ -14,6 +15,7 @@ export class AgentBrain {
   private mcpClient: MCPClient;
   private maxIterations: number = 10;
   private permissionConfig: PermissionConfig;
+  private hookManager: HookManager;
 
   constructor(
     agent: Agent,
@@ -34,6 +36,9 @@ export class AgentBrain {
     this.memory = new Memory(agent.id, '', '', { maxMessages: 100 });
     this.maxIterations = options?.maxIterations || 10;
     this.permissionConfig = options?.permissionConfig || { policy: 'ReadOnly' };
+    this.hookManager = new HookManager();
+    this.hookManager.register('PreToolUse', createToolLogger());
+    this.hookManager.register('PostToolUse', createToolLogger());
   }
 
   getInfo(): Agent {
@@ -230,7 +235,7 @@ export class AgentBrain {
       }
 
       for (const toolCall of toolCalls) {
-        const result = await this.executeTool(toolCall);
+        const result = await this.executeTool(toolCall, state.iteration);
         state.results.push(result);
         state.toolCalls.push(toolCall);
 
@@ -272,8 +277,36 @@ export class AgentBrain {
     return toolCalls;
   }
 
-  private async executeTool(toolCall: ToolCall): Promise<ToolExecutionResult> {
+  private async executeTool(toolCall: ToolCall, iteration: number): Promise<ToolExecutionResult> {
     const startTime = Date.now();
+
+    // Build hook context
+    const hookContext: HookContext = {
+      agentId: this.agent.id,
+      userId: '', // Would be passed from processMessage
+      channel: '', // Would be passed from processMessage
+      iteration,
+      messages: this.memory.getMessages(),
+    };
+
+    const hookEvent: HookEvent = {
+      type: 'PreToolUse',
+      toolName: toolCall.name,
+      toolArgs: toolCall.arguments,
+      permission: this.permissionConfig?.policy || 'ReadOnly',
+      timestamp: new Date(),
+    };
+
+    // Step 0: PreToolUse hook
+    const preHookResult = await this.hookManager.run('PreToolUse', hookContext, hookEvent);
+    if (!preHookResult.allowed) {
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: preHookResult.message || 'Hook blocked execution',
+        duration: Date.now() - startTime,
+      };
+    }
 
     // Step 1: Permission check
     const permissionCheck = await this.checkPermission(toolCall.name);
@@ -295,6 +328,13 @@ export class AgentBrain {
         message: '',
         metadata: toolCall.arguments,
       });
+
+      // Step 3: PostToolUse hook
+      const postHookEvent: HookEvent = {
+        ...hookEvent,
+        type: 'PostToolUse',
+      };
+      await this.hookManager.run('PostToolUse', hookContext, postHookEvent);
 
       return {
         toolCallId: toolCall.id,
