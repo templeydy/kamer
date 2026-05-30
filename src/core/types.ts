@@ -106,3 +106,137 @@ export interface LLMResponse {
     outputTokens: number;
   };
 }
+
+// ============================================
+// Streaming Types
+// ============================================
+
+export type StreamEventType =
+  | 'content.start'
+  | 'content.delta'
+  | 'content.end'
+  | 'tool_use'
+  | 'tool_result'
+  | 'error'
+  | 'done';
+
+export interface StreamEvent {
+  type: StreamEventType;
+  data: any;
+  timestamp: Date;
+}
+
+export interface StreamChunk {
+  type: 'text' | 'tool_call' | 'tool_result' | 'error';
+  content: string;
+  toolName?: string;
+  toolArgs?: Record<string, any>;
+  toolResult?: any;
+}
+
+// ============================================
+// Tool Execution Types
+// ============================================
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface ToolExecutionResult {
+  toolCallId: string;
+  success: boolean;
+  content?: string;
+  error?: string;
+  exitCode?: number;
+  duration: number;
+}
+
+export interface ExecutionState {
+  iteration: number;
+  maxIterations: number;
+  toolCalls: ToolCall[];
+  results: ToolExecutionResult[];
+  finalResponse: string;
+}
+
+// ============================================
+// Permission Types
+// ============================================
+
+export type PermissionPolicy = 'ReadOnly' | 'WorkspaceWrite' | 'DangerFullAccess';
+
+export interface PermissionConfig {
+  policy: PermissionPolicy;
+  allowedTools?: string[];
+  blockedTools?: string[];
+  workspacePaths?: string[];
+}
+
+export interface PermissionCheck {
+  allowed: boolean;
+  policy: PermissionPolicy;
+  toolName: string;
+  reason?: string;
+}
+
+// ============================================
+// Hook Types
+// ============================================
+
+export type HookEventType = 'PreToolUse' | 'PostToolUse';
+
+export interface HookEvent {
+  type: HookEventType;
+  toolName: string;
+  toolArgs: Record<string, any>;
+  permission: PermissionPolicy;
+  timestamp: Date;
+}
+
+export interface HookContext {
+  agentId: string;
+  userId: string;
+  channel: string;
+  iteration: number;
+  messages: Message[];
+}
+
+export type HookHandler = (event: HookEvent, context: HookContext) => Promise<HookResult> | HookResult;
+
+export interface HookResult {
+  allowed: boolean;
+  exitCode?: number;
+  modifiedArgs?: Record<string, any>;
+  message?: string;
+}
+
+export const HOOK_EXIT = {
+  CONTINUE: 0,
+  RETRY: 1,
+  SKIP: 2,
+  ABORT: 3,
+} as const;
+
+// ============================================
+// Summary Types
+// ============================================
+
+export interface StructuredSummary {
+  version: string;
+  generatedAt: Date;
+  messageCount: number;
+  topics: string[];
+  decisions: string[];
+  pendingTasks: string[];
+  keyFacts: string[];
+  userPreferences: string[];
+  contextWindows: string[];
+}
+
+export interface CompactedMemory {
+  summary: StructuredSummary;
+  recentMessages: Message[];
+  originalMessageCount: number;
+}
