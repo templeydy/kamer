@@ -1,4 +1,4 @@
-import type { Agent, Message, LLMResponse, ToolCall, ToolExecutionResult, ExecutionState } from './types';
+import type { Agent, Message, LLMResponse, ToolCall, ToolExecutionResult, ExecutionState, PermissionPolicy, PermissionCheck, PermissionConfig } from './types';
 import { LLMAdapter } from './llm-adapter';
 import { Memory } from './memory';
 import type { EmbeddingService } from './embedding';
@@ -13,6 +13,7 @@ export class AgentBrain {
   private skillEngine: SkillEngine;
   private mcpClient: MCPClient;
   private maxIterations: number = 10;
+  private permissionConfig: PermissionConfig;
 
   constructor(
     agent: Agent,
@@ -22,6 +23,7 @@ export class AgentBrain {
     mcpClient: MCPClient,
     options?: {
       maxIterations?: number;
+      permissionConfig?: PermissionConfig;
     }
   ) {
     this.agent = agent;
@@ -31,6 +33,7 @@ export class AgentBrain {
     this.mcpClient = mcpClient;
     this.memory = new Memory(agent.id, '', '', { maxMessages: 100 });
     this.maxIterations = options?.maxIterations || 10;
+    this.permissionConfig = options?.permissionConfig || { policy: 'ReadOnly' };
   }
 
   getInfo(): Agent {
@@ -272,8 +275,19 @@ export class AgentBrain {
   private async executeTool(toolCall: ToolCall): Promise<ToolExecutionResult> {
     const startTime = Date.now();
 
+    // Step 1: Permission check
+    const permissionCheck = await this.checkPermission(toolCall.name);
+    if (!permissionCheck.allowed) {
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: `Permission denied: ${permissionCheck.reason}`,
+        duration: Date.now() - startTime,
+      };
+    }
+
+    // Step 2: Execute tool
     try {
-      // Try SkillEngine first
       const skillResult = await this.skillEngine.executeSkill(toolCall.name, {
         agentId: this.agent.id,
         userId: '',
@@ -296,6 +310,45 @@ export class AgentBrain {
         error: e instanceof Error ? e.message : String(e),
         duration: Date.now() - startTime,
       };
+    }
+  }
+
+  private async checkPermission(toolName: string): Promise<PermissionCheck> {
+    const policy = this.permissionConfig?.policy || 'ReadOnly';
+
+    switch (policy) {
+      case 'ReadOnly':
+        return {
+          allowed: false,
+          policy,
+          toolName,
+          reason: 'ReadOnly policy blocks all tools',
+        };
+
+      case 'WorkspaceWrite':
+        if (this.permissionConfig.blockedTools?.includes(toolName)) {
+          return {
+            allowed: false,
+            policy,
+            toolName,
+            reason: `Tool ${toolName} is explicitly blocked`,
+          };
+        }
+        const allowedTools = this.permissionConfig.allowedTools;
+        if (allowedTools && allowedTools.length > 0) {
+          if (!allowedTools.includes(toolName)) {
+            return {
+              allowed: false,
+              policy,
+              toolName,
+              reason: `Tool ${toolName} not in allowed list`,
+            };
+          }
+        }
+        return { allowed: true, policy, toolName };
+
+      case 'DangerFullAccess':
+        return { allowed: true, policy, toolName };
     }
   }
 }
