@@ -1,5 +1,5 @@
+import type { SkillContext, Message, StreamChunk } from '../core/types';
 import { ChannelAdapter } from './base';
-import type { SkillContext, Message } from '../core/types';
 import { Client, EventDispatcher, WSClient } from '@larksuiteoapi/node-sdk';
 
 export interface FeishuConfig {
@@ -135,6 +135,16 @@ export class FeishuChannel extends ChannelAdapter {
 
   formatForChannel(message: string, _ctx: SkillContext): string {
     return message;
+  }
+
+  async sendStream(userId: string, chunks: StreamChunk[]): Promise<void> {
+    let accumulated = '';
+    for (const chunk of chunks) {
+      if (chunk.type === 'text') {
+        accumulated += chunk.content;
+      }
+    }
+    await this.send(userId, accumulated);
   }
 
   private async handleMessage(data: any): Promise<void> {

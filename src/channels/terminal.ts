@@ -1,6 +1,6 @@
 import readline from 'readline';
 import { ChannelAdapter } from './base';
-import type { SkillContext } from '../core/types';
+import type { SkillContext, Message, StreamChunk } from '../core/types';
 
 export class TerminalChannel extends ChannelAdapter {
   platform = 'terminal' as const;
@@ -34,6 +34,15 @@ export class TerminalChannel extends ChannelAdapter {
 
   formatForChannel(message: string, _ctx: SkillContext): string {
     return message;
+  }
+
+  async sendStream(_userId: string, chunks: StreamChunk[]): Promise<void> {
+    for (const chunk of chunks) {
+      if (chunk.type === 'text') {
+        process.stdout.write(chunk.content);
+      }
+    }
+    process.stdout.write('\n');
   }
 
   async startConversation(messageHandler: (ctx: SkillContext) => Promise<void>): Promise<void> {
