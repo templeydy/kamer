@@ -1,4 +1,4 @@
-import type { Agent, Message, LLMResponse } from './types';
+import type { Agent, Message, LLMResponse, ToolCall, ToolExecutionResult, ExecutionState } from './types';
 import { LLMAdapter } from './llm-adapter';
 import { Memory } from './memory';
 import type { EmbeddingService } from './embedding';
@@ -12,13 +12,17 @@ export class AgentBrain {
   private embeddingService: EmbeddingService;
   private skillEngine: SkillEngine;
   private mcpClient: MCPClient;
+  private maxIterations: number = 10;
 
   constructor(
     agent: Agent,
     llmAdapter: LLMAdapter,
     embeddingService: EmbeddingService,
     skillEngine: SkillEngine,
-    mcpClient: MCPClient
+    mcpClient: MCPClient,
+    options?: {
+      maxIterations?: number;
+    }
   ) {
     this.agent = agent;
     this.llm = llmAdapter;
@@ -26,6 +30,7 @@ export class AgentBrain {
     this.skillEngine = skillEngine;
     this.mcpClient = mcpClient;
     this.memory = new Memory(agent.id, '', '', { maxMessages: 100 });
+    this.maxIterations = options?.maxIterations || 10;
   }
 
   getInfo(): Agent {
@@ -40,42 +45,25 @@ export class AgentBrain {
       timestamp: new Date(),
     });
 
-    // Step 2: Parallel retrieval - memory context, skills, and tools
-    const [memoryContext, recommendedTools] = await Promise.all([
-      this.retrieveMemoryContext(message),
-      this.retrieveRecommendedTools(message),
-    ]);
-
-    // Step 3: Build enhanced prompt
-    const enhancedPrompt = await this.buildEnhancedPrompt(
-      memoryContext,
-      recommendedTools,
-      channel
-    );
-
-    // Step 4: Get messages for LLM (memory context)
+    // Step 2: Build messages for LLM
     const messages = this.memory.getContext();
 
-    // Step 5: Get response from LLM with enhanced system prompt
-    const response = await this.llm.chat(messages, {
-      temperature: this.agent.temperature,
-      maxTokens: this.agent.maxTokens,
-      systemPrompt: enhancedPrompt,
-    });
+    // Step 3: Get response - now with tool execution loop
+    const executionState = await this.executeToolLoop(messages);
 
-    // Step 6: Add assistant response to memory
+    // Step 4: Add assistant response to memory
     this.memory.addMessage({
       role: 'assistant',
-      content: response.content,
+      content: executionState.finalResponse,
       timestamp: new Date(),
     });
 
-    // Step 7: Memory check - compact if threshold exceeded
+    // Step 5: Check compaction
     if (this.memory.shouldCompact()) {
       await this.memory.compact(this.llm, this.agent.systemPrompt);
     }
 
-    return response.content;
+    return executionState.finalResponse;
   }
 
   /**
@@ -210,6 +198,104 @@ export class AgentBrain {
     // Restore messages
     for (const msg of currentMemory.messages) {
       this.memory.addMessage(msg);
+    }
+  }
+
+  private async executeToolLoop(messages: Message[]): Promise<ExecutionState> {
+    const state: ExecutionState = {
+      iteration: 0,
+      maxIterations: this.maxIterations,
+      toolCalls: [],
+      results: [],
+      finalResponse: '',
+    };
+
+    while (state.iteration < state.maxIterations) {
+      state.iteration++;
+
+      const response = await this.llm.chat(messages, {
+        temperature: this.agent.temperature,
+        maxTokens: this.agent.maxTokens,
+        systemPrompt: this.agent.systemPrompt,
+      });
+
+      const toolCalls = this.parseToolCalls(response.content);
+
+      if (toolCalls.length === 0) {
+        state.finalResponse = response.content;
+        break;
+      }
+
+      for (const toolCall of toolCalls) {
+        const result = await this.executeTool(toolCall);
+        state.results.push(result);
+        state.toolCalls.push(toolCall);
+
+        messages.push({
+          role: 'tool',
+          content: result.content || result.error || '',
+          timestamp: new Date(),
+          metadata: { toolCallId: toolCall.id, toolName: toolCall.name },
+        });
+      }
+    }
+
+    return state;
+  }
+
+  private parseToolCalls(content: string): ToolCall[] {
+    const toolCalls: ToolCall[] = [];
+
+    // Parse Anthropic-style tool_use blocks
+    const toolUseRegex = /<tool_use>\s*<tool_name>([^<]+)<\/tool_name>\s*<tool_input>([\s\S]*?)<\/tool_input>\s*<\/tool_use>/g;
+
+    let match;
+    while ((match = toolUseRegex.exec(content)) !== null) {
+      const toolName = match[1].trim();
+      let toolArgs = {};
+      try {
+        toolArgs = JSON.parse(match[2].trim());
+      } catch {
+        toolArgs = { raw: match[2].trim() };
+      }
+
+      toolCalls.push({
+        id: `call_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name: toolName,
+        arguments: toolArgs,
+      });
+    }
+
+    return toolCalls;
+  }
+
+  private async executeTool(toolCall: ToolCall): Promise<ToolExecutionResult> {
+    const startTime = Date.now();
+
+    try {
+      // Try SkillEngine first
+      const skillResult = await this.skillEngine.executeSkill(toolCall.name, {
+        agentId: this.agent.id,
+        userId: '',
+        channel: '',
+        message: '',
+        metadata: toolCall.arguments,
+      });
+
+      return {
+        toolCallId: toolCall.id,
+        success: skillResult.success,
+        content: skillResult.content,
+        error: skillResult.error,
+        duration: Date.now() - startTime,
+      };
+    } catch (e) {
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+        duration: Date.now() - startTime,
+      };
     }
   }
 }

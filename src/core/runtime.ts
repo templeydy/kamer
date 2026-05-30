@@ -51,6 +51,8 @@ export class Runtime {
     const content = readFileSync(configPath, 'utf-8');
     const agentConfig: Agent = yaml.parse(content);
 
+    console.log('[DEBUG] loadAgent, model:', agentConfig.model, 'apiKey present:', !!agentConfig.apiKey, 'baseUrl:', agentConfig.baseUrl);
+
     const llmAdapter = new LLMAdapter({
       model: agentConfig.model,
       apiKey: agentConfig.apiKey || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY,
@@ -80,17 +82,26 @@ export class Runtime {
     if (channel) {
       // Register message handler for the channel
       channel.onMessage(async (ctx) => {
+        console.log('[DEBUG] onMessage callback triggered, userId:', ctx.userId, 'message:', ctx.message);
         // Find agents configured for this channel
         for (const agent of this.agents.values()) {
           const agentInfo = agent.getInfo();
           if (agentInfo.channels.includes(name)) {
             const messageId = ctx.metadata?.messageId;
+            console.log('[DEBUG] Found agent:', agentInfo.id, 'channel config:', agentInfo.channels);
             // 在用户消息上添加思考表情，返回 reactionId 用于后续删除
             let reactionId: string | undefined;
             if (messageId && (channel as any).showThinking) {
-              reactionId = await (channel as any).showThinking(messageId);
+              try {
+                reactionId = await (channel as any).showThinking(messageId);
+                console.log('[DEBUG] showThinking returned:', reactionId);
+              } catch (e) {
+                console.error('[DEBUG] showThinking error:', e);
+              }
             }
+            console.log('[DEBUG] About to call agent.processMessage');
             const response = await agent.processMessage(ctx.userId, ctx.message, ctx.channel);
+            console.log('[DEBUG] processMessage returned response length:', response.length);
             // 移除思考表情
             if (messageId && (channel as any).clearThinking) {
               await (channel as any).clearThinking(messageId, reactionId);

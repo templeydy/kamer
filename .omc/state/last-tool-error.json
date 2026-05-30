@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"npx tsc --noEmit src/core/agent.ts 2>&1\",\"description\":\"Verify agent.ts compiles without errors\"}",
+  "error": "Exit code 2\nsrc/core/skill-engine.ts(6,8): error TS1192: Module '\"/Users/admin/agent_framework/node_modules/yaml/dist/index\"' has no default export.\nsrc/core/skill-engine.ts(8,41): error TS1343: The 'import.meta' meta-property is only allowed when the '--module' option is 'es2020', 'es2022', 'esnext', 'system', 'node16', 'node18', 'node20', or 'nodenext'.",
+  "timestamp": "2026-05-30T23:48:05.885Z",
+  "retry_count": 2
+}
