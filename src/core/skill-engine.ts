@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { Skill, SkillContext, SkillResult } from './types';
+import { EmbeddingService } from './embedding';
 import yaml from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -99,5 +100,37 @@ export class SkillEngine {
 
   registerSkill(skill: Skill): void {
     this.skills.set(skill.name, skill);
+  }
+
+  /**
+   * 批量预计算 skill 描述 embedding
+   */
+  async prepareEmbeddings(embeddingService: EmbeddingService): Promise<void> {
+    const skills = this.listSkills();
+    const descriptions = skills.map(s => s.description || `${s.name}: ${s.description}`);
+    if (descriptions.length === 0) return;
+    const vectors = await embeddingService.embedBatch(descriptions);
+    skills.forEach((skill, index) => {
+      skill.embedding = vectors[index];
+    });
+  }
+
+  /**
+   * 根据查询文本检索最匹配的 skill
+   */
+  async retrieveTopSkills(
+    query: string,
+    embeddingService: EmbeddingService,
+    k: number
+  ): Promise<{ skill: Skill; score: number }[]> {
+    const skills = this.listSkills().filter(s => s.embedding);
+    if (skills.length === 0) return [];
+    const queryEmbedding = await embeddingService.embed(query);
+    const scored = skills.map(skill => ({
+      skill,
+      score: embeddingService.cosineSimilarity(queryEmbedding, skill.embedding!),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, k);
   }
 }

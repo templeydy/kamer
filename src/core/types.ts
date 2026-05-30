@@ -37,6 +37,7 @@ export interface Skill {
   version: string;
   execute(ctx: SkillContext): Promise<SkillResult>;
   validate?(params: unknown): boolean;
+  embedding?: number[];  // 预计算的描述向量
 }
 
 // 消息
