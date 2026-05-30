@@ -11,6 +11,8 @@ export interface Agent {
   mcpServers: string[];
   temperature: number;
   maxTokens: number;
+  permission?: PermissionConfig;
+  maxIterations?: number;
 }
 
 // Skill 上下文

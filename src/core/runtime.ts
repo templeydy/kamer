@@ -5,13 +5,14 @@ import { LLMAdapter } from './llm-adapter';
 import { SkillEngine } from './skill-engine';
 import { MCPClient } from './mcp-client';
 import { EmbeddingService } from './embedding';
+import { HookManager, createToolLogger, createDangerousToolBlocker } from './hook-manager';
 import { TerminalChannel } from '../channels/terminal';
 import { FeishuChannel } from '../channels/feishu';
 import { WeComChannel } from '../channels/wecom';
 import { DingTalkChannel } from '../channels/dingtalk';
 import { TeamsChannel } from '../channels/teams';
 import { ChannelAdapter } from '../channels/base';
-import type { Agent } from './types';
+import type { Agent, PermissionConfig } from './types';
 import yaml from 'yaml';
 
 export class Runtime {
@@ -20,11 +21,16 @@ export class Runtime {
   private mcpClient: MCPClient;
   private embeddingService: EmbeddingService;
   private channels: Map<string, ChannelAdapter> = new Map();
+  private hookManager: HookManager;
 
   constructor() {
     this.skillEngine = new SkillEngine();
     this.mcpClient = new MCPClient();
     this.embeddingService = new EmbeddingService({});
+    this.hookManager = new HookManager();
+    this.hookManager.register('PreToolUse', createToolLogger());
+    this.hookManager.register('PostToolUse', createToolLogger());
+    this.hookManager.register('PreToolUse', createDangerousToolBlocker(['bash', 'shell']));
     this.initChannels();
   }
 
@@ -59,7 +65,21 @@ export class Runtime {
       baseUrl: agentConfig.baseUrl,
     });
 
-    const brain = new AgentBrain(agentConfig, llmAdapter, this.embeddingService, this.skillEngine, this.mcpClient);
+    // Permission config from agent config or default to ReadOnly
+    const permissionConfig: PermissionConfig = agentConfig.permission || { policy: 'ReadOnly' };
+
+    const brain = new AgentBrain(
+      agentConfig,
+      llmAdapter,
+      this.embeddingService,
+      this.skillEngine,
+      this.mcpClient,
+      {
+        maxIterations: agentConfig.maxIterations || 10,
+        permissionConfig,
+      }
+    );
+
     this.agents.set(agentConfig.id, brain);
   }
 
