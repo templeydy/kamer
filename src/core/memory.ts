@@ -1,4 +1,4 @@
-import type { ConversationMemory, Message } from './types';
+import type { Message, ConversationMemory, StructuredSummary } from './types';
 import type { LLMAdapter } from './llm-adapter';
 
 export interface MemoryOptions {
@@ -66,33 +66,96 @@ export class Memory {
   }
 
   async compact(llm: LLMAdapter, systemPrompt: string): Promise<string> {
-    const retainedCount = this.options.retainMessagesAfterCompact;
-    const messagesToSummarize = this.memory.messages.slice(0, this.memory.messages.length - retainedCount);
-
-    if (messagesToSummarize.length === 0) {
+    const earlyMessages = this.getEarlyMessages(this.memory.messages.length);
+    if (earlyMessages.length === 0) {
       return '';
     }
 
-    const summarizePrompt = `${systemPrompt}\n\nPlease summarize the following conversation into a concise summary that preserves key information, decisions, and context:\n\n${messagesToSummarize.map(m => `${m.role}: ${m.content}`).join('\n\n')}`;
+    const conversationText = earlyMessages
+      .map(m => `${m.role}: ${m.content}`)
+      .join('\n');
+
+    const structuredPrompt = `${systemPrompt}
+
+Please analyze the following conversation and produce a STRUCTURED SUMMARY in JSON format with these fields:
+- topics: Array of key topics discussed (max 10)
+- decisions: Array of key decisions made (max 10)
+- pendingTasks: Array of tasks mentioned but not completed (max 10)
+- keyFacts: Array of important facts established (max 10)
+- userPreferences: Array of user preferences noted (max 10)
+- contextWindows: Array of important code snippets or data to remember (max 5)
+
+CONVERSATION:
+${conversationText}
+
+Respond ONLY with valid JSON matching this schema.`;
 
     const response = await llm.chat(
-      [{ role: 'user', content: summarizePrompt, timestamp: new Date() }],
-      { systemPrompt: 'You are a helpful assistant that summarizes conversations accurately and concisely.' }
+      [{ role: 'user', content: structuredPrompt, timestamp: new Date() }],
+      { temperature: 0.5, maxTokens: 2048 }
     );
 
-    const summary = response.content;
+    let summary: StructuredSummary;
+    try {
+      summary = JSON.parse(response.content);
+    } catch {
+      // Fallback to simple summarization
+      summary = {
+        version: '1.0',
+        generatedAt: new Date(),
+        messageCount: earlyMessages.length,
+        topics: [response.content.slice(0, 500)],
+        decisions: [],
+        pendingTasks: [],
+        keyFacts: [],
+        userPreferences: [],
+        contextWindows: [],
+      };
+    }
 
-    // Replace early messages with a summary system message
-    const summaryMessage: Message = {
-      role: 'system',
-      content: `[Earlier conversation summary]: ${summary}`,
-      timestamp: new Date(),
-      metadata: { isSummary: true, messagesSummarized: messagesToSummarize.length },
-    };
+    // Ensure required fields
+    summary.version = '1.0';
+    summary.generatedAt = new Date();
+    summary.messageCount = earlyMessages.length;
 
-    this.memory.messages = [summaryMessage, ...this.memory.messages.slice(-retainedCount)];
+    // Keep only recent messages plus summary
+    const recentMessages = this.memory.messages.slice(-(this.options.retainMessagesAfterCompact || 100));
+    this.memory.messages = [
+      {
+        role: 'system',
+        content: `【对话摘要】\n${this.formatSummaryAsContext(summary)}`,
+        timestamp: new Date(),
+        metadata: { isSummary: true, summaryVersion: '1.0' },
+      },
+      ...recentMessages,
+    ];
+
     this.memory.updatedAt = new Date();
+    return response.content;
+  }
 
-    return summary;
+  private formatSummaryAsContext(summary: StructuredSummary): string {
+    const parts: string[] = [];
+
+    if (summary.topics.length > 0) {
+      parts.push(`Topics: ${summary.topics.join(', ')}`);
+    }
+    if (summary.decisions.length > 0) {
+      parts.push(`Decisions: ${summary.decisions.join('; ')}`);
+    }
+    if (summary.pendingTasks.length > 0) {
+      parts.push(`Pending tasks: ${summary.pendingTasks.join(', ')}`);
+    }
+    if (summary.keyFacts.length > 0) {
+      parts.push(`Key facts: ${summary.keyFacts.join('; ')}`);
+    }
+    if (summary.userPreferences.length > 0) {
+      parts.push(`User preferences: ${summary.userPreferences.join('; ')}`);
+    }
+    if (summary.contextWindows.length > 0) {
+      parts.push(`Remembered context:\n${summary.contextWindows.join('\n\n')}`);
+    }
+
+    return parts.join('\n');
   }
 }
