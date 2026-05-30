@@ -8,14 +8,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.0.0",
+    "@hono/node-server": "^2.0.4",
+    "@larksuiteoapi/node-sdk": "^1.66.0",
     "@modelcontextprotocol/sdk": "^0.5.0",
-    "ws": "^8.0.0",
+    "hono": "^4.0.0",
+    "ws": "^8.21.0",
     "yaml": "^2.0.0",
     "zod": "^3.0.0"
   },
   "devDependencies": {
     "bun-types": "^1.0.0",
-    "typescript": "^5.0.0"
+    "tsx": "^4.22.3",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.7"
   }
 }
