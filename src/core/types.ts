@@ -80,6 +80,7 @@ export interface MCPtool {
   name: string;
   description: string;
   inputSchema: any;
+  embedding?: number[];  // 预计算的描述向量
 }
 
 // Channel 配置

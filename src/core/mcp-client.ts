@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { readFileSync } from 'fs';
 import type { MCPConfig, MCPServer, MCPtool } from './types';
+import type { EmbeddingService } from './embedding';
 
 export class MCPClient {
   private servers: Map<string, MCPServer> = new Map();
@@ -129,5 +130,46 @@ export class MCPClient {
       proc.stdout?.on('data', handler);
       proc.stdin.write(JSON.stringify(request) + '\n');
     });
+  }
+
+  async prepareEmbeddings(embeddingService: EmbeddingService): Promise<void> {
+    const servers = this.listServers();
+    const toolDescriptions: { serverId: string; tool: MCPtool }[] = [];
+    for (const server of servers) {
+      for (const tool of server.tools) {
+        toolDescriptions.push({ serverId: server.id, tool });
+      }
+    }
+    if (toolDescriptions.length === 0) return;
+    const texts = toolDescriptions.map(t => `${t.tool.name}: ${t.tool.description}`);
+    const vectors = await embeddingService.embedBatch(texts);
+    toolDescriptions.forEach((t, index) => {
+      t.tool.embedding = vectors[index];
+    });
+  }
+
+  async retrieveTopTools(
+    query: string,
+    embeddingService: EmbeddingService,
+    k: number
+  ): Promise<{ serverId: string; tool: MCPtool; score: number }[]> {
+    const servers = this.listServers();
+    const toolsWithServer: { serverId: string; tool: MCPtool; embedding?: number[] }[] = [];
+    for (const server of servers) {
+      for (const tool of server.tools) {
+        if (tool.embedding) {
+          toolsWithServer.push({ serverId: server.id, tool, embedding: tool.embedding });
+        }
+      }
+    }
+    if (toolsWithServer.length === 0) return [];
+    const queryEmbedding = await embeddingService.embed(query);
+    const scored = toolsWithServer.map(t => ({
+      serverId: t.serverId,
+      tool: t.tool,
+      score: embeddingService.cosineSimilarity(queryEmbedding, t.embedding!),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, k);
   }
 }
