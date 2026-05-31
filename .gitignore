@@ -6,3 +6,4 @@ kamer.mjs
 .env
 *.log
 .DS_Store
+agents/*.local
