@@ -7,6 +7,13 @@ baseUrl: https://api.openai.com/v1
 systemPrompt: |
   你是一个有用的助手。
 
+skills:
+  - web_search
+  - calculator
+
+mcpServers:
+  - filesystem
+
 channels:
   - terminal
 

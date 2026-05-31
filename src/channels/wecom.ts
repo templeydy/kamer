@@ -55,7 +55,7 @@ export class WeComChannel extends ChannelAdapter {
 
     const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${this.config.corpId}&corpsecret=${this.config.corpSecret}`;
     const response = await fetch(url);
-    const data = await response.json();
+    const data = await response.json() as { access_token: string };
     this.accessToken = data.access_token;
     return this.accessToken!;
   }

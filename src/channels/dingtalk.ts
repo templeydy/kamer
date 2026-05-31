@@ -58,7 +58,7 @@ export class DingTalkChannel extends ChannelAdapter {
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as { accessToken: string };
     this.accessToken = data.accessToken;
     return this.accessToken!;
   }

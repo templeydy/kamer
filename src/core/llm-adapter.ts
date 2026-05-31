@@ -113,7 +113,10 @@ export class LLMAdapter {
       throw new Error(`API error: ${response.status} - ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      choices: { message: { content: string } }[];
+      usage?: { prompt_tokens: number; completion_tokens: number };
+    };
     let content = data.choices[0].message.content;
     // 过滤掉思考标签 (MiniMax 等模型会返回 <result>think...</result>)
     content = content.replace(/<[^>]*think[^>]*>[\s\S]*?<\/[^>]*>/gi, '');
@@ -153,7 +156,10 @@ export class LLMAdapter {
       throw new Error(`Claude API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      content: { text: string }[];
+      usage: { input_tokens: number; output_tokens: number };
+    };
     return {
       content: data.content[0].text,
       usage: {
@@ -188,7 +194,10 @@ export class LLMAdapter {
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      choices: { message: { content: string } }[];
+      usage: { prompt_tokens: number; completion_tokens: number };
+    };
     return {
       content: data.choices[0].message.content,
       usage: {
@@ -214,7 +223,9 @@ export class LLMAdapter {
       throw new Error(`Ollama API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      message: { content: string };
+    };
     return {
       content: data.message.content,
     };
@@ -245,7 +256,10 @@ export class LLMAdapter {
       throw new Error(`xAI API error: ${response.status} - ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      choices: { message: { content: string } }[];
+      usage?: { prompt_tokens: number; completion_tokens: number };
+    };
     return {
       content: data.choices[0].message.content,
       usage: {

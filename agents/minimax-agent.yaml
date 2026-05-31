@@ -7,7 +7,14 @@ baseUrl: https://api.minimax.chat/v1
 systemPrompt: |
   你是一个有用的助手，专注于回答用户问题。
 
-skills: []
+skills:
+  - web_search
+  - calculator
+  - code_interpreter
+
+mcpServers:
+  - filesystem
+  - git
 
 channels:
   - terminal

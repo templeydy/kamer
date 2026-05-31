@@ -8,7 +8,11 @@ import { createMcpRouter } from './ui/api/routes/mcp';
 import { createChannelsRouter } from './ui/api/routes/channels';
 import { FeishuChannel } from './channels/feishu';
 import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import yaml from 'yaml';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Initialize runtime
 const runtime = new Runtime();
@@ -37,6 +41,40 @@ api.route('/skills', createSkillsRouter(runtime));
 api.route('/mcp', createMcpRouter(runtime));
 api.route('/channels', createChannelsRouter(runtime));
 
+// Serve static UI files
+api.get('/ui', async (c) => {
+  const filePath = join(__dirname, '..', 'ui', 'index.html');
+  try {
+    const content = readFileSync(filePath);
+    return c.body(content, 200, { 'Content-Type': 'text/html' });
+  } catch {
+    return c.notFound();
+  }
+});
+
+api.get('/ui/*', async (c) => {
+  const path = c.req.path.replace('/ui', '') || '/';
+  const filePath = join(__dirname, '..', 'ui', path === '/' ? 'index.html' : path);
+  try {
+    const content = readFileSync(filePath);
+    const contentType = filePath.endsWith('.html') ? 'text/html' : 'text/plain';
+    return c.body(content, 200, { 'Content-Type': contentType });
+  } catch {
+    return c.notFound();
+  }
+});
+
+// Serve root with UI
+api.get('/', async (c) => {
+  const filePath = join(__dirname, '..', 'ui', 'index.html');
+  try {
+    const content = readFileSync(filePath);
+    return c.body(content, 200, { 'Content-Type': 'text/html' });
+  } catch {
+    return c.text('Kamer API');
+  }
+});
+
 // Feishu webhook endpoint - 只在 WebSocket 不可用时备用
 // 当前使用 WebSocket 长连接，webhook 暂不使用
 api.post('/webhooks/feishu', async (c) => {
@@ -47,7 +85,7 @@ api.post('/webhooks/feishu', async (c) => {
 
 // Start API server
 const port = parseInt(process.env.PORT || '3000');
-console.log(`Agent Framework starting on port ${port}`);
+console.log(`Kamer starting on port ${port}`);
 
 serve({
   port,

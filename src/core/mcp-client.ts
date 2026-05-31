@@ -39,7 +39,7 @@ export class MCPClient {
           protocolVersion: '0.1.0',
           capabilities: {},
           clientInfo: {
-            name: 'agent-framework',
+            name: 'kamer',
             version: '0.1.0',
           },
         },
@@ -128,7 +128,7 @@ export class MCPClient {
       };
 
       proc.stdout?.on('data', handler);
-      proc.stdin.write(JSON.stringify(request) + '\n');
+      proc.stdin?.write(JSON.stringify(request) + '\n');
     });
   }
 

@@ -48,7 +48,7 @@ export class TeamsChannel extends ChannelAdapter {
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json() as { access_token: string };
     this.accessToken = data.access_token;
     return this.accessToken!;
   }

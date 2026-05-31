@@ -9,6 +9,7 @@ export interface Agent {
   systemPrompt: string;
   skills: string[];
   mcpServers: string[];
+  channels: string[];
   temperature: number;
   maxTokens: number;
   permission?: PermissionConfig;

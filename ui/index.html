@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kamer 管理面板</title>
+  <style>
+    /* ===== Theme Variables ===== */
+    :root {
+      --bg: #1a1a2e;
+      --bg-card: #16213e;
+      --bg-card-hover: #0f3460;
+      --bg-input: #0f3460;
+      --bg-log: #0a0a0f;
+      --border: #0f3460;
+      --text: #eee;
+      --text-secondary: #888;
+      --text-muted: #666;
+      --accent: #00d9ff;
+      --accent-hover: #00b8d9;
+      --accent-text: #1a1a2e;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #4ade80;
+      --success-bg: #065f46;
+      --warning: #fbbf24;
+      --warning-bg: #78350f;
+      --error-text: #f87171;
+      --error-bg: #7f1d1d;
+      --tag-bg: #16213e;
+      --modal-bg: #16213e;
+      --header-bg: #16213e;
+    }
+
+    /* 暗夜蓝 (default) */
+    [data-theme="midnight"] {
+      --bg: #1a1a2e; --bg-card: #16213e; --bg-card-hover: #0f3460;
+      --bg-input: #0f3460; --bg-log: #0a0a0f; --border: #0f3460;
+      --text: #eee; --text-secondary: #888; --text-muted: #666;
+      --accent: #00d9ff; --accent-hover: #00b8d9; --accent-text: #1a1a2e;
+      --tag-bg: #16213e; --modal-bg: #16213e; --header-bg: #16213e;
+    }
+
+    /* 翡翠绿 */
+    [data-theme="emerald"] {
+      --bg: #0d1f17; --bg-card: #0f2d1f; --bg-card-hover: #124028;
+      --bg-input: #124028; --bg-log: #08140e; --border: #124028;
+      --text: #e0f0e8; --text-secondary: #7a9e8a; --text-muted: #5a7a6a;
+      --accent: #34d399; --accent-hover: #2bb87e; --accent-text: #0d1f17;
+      --tag-bg: #0f2d1f; --modal-bg: #0f2d1f; --header-bg: #0f2d1f;
+    }
+
+    /* 落日橙 */
+    [data-theme="sunset"] {
+      --bg: #1f1410; --bg-card: #2d1f16; --bg-card-hover: #402818;
+      --bg-input: #402818; --bg-log: #140d08; --border: #402818;
+      --text: #f0e8e0; --text-secondary: #8a7a6a; --text-muted: #6a5a4a;
+      --accent: #fb923c; --accent-hover: #e07d30; --accent-text: #1f1410;
+      --tag-bg: #2d1f16; --modal-bg: #2d1f16; --header-bg: #2d1f16;
+    }
+
+    /* 极简白 */
+    [data-theme="light"] {
+      --bg: #f5f5f5; --bg-card: #ffffff; --bg-card-hover: #e8e8e8;
+      --bg-input: #e8e8e8; --bg-log: #eee; --border: #ddd;
+      --text: #222; --text-secondary: #666; --text-muted: #999;
+      --accent: #2563eb; --accent-hover: #1d4ed8; --accent-text: #fff;
+      --tag-bg: #e8e8e8; --modal-bg: #ffffff; --header-bg: #ffffff;
+    }
+
+    /* 紫罗兰 */
+    [data-theme="violet"] {
+      --bg: #1a1428; --bg-card: #1f1835; --bg-card-hover: #281e45;
+      --bg-input: #281e45; --bg-log: #0f0b18; --border: #281e45;
+      --text: #e8e0f0; --text-secondary: #8a7a9e; --text-muted: #6a5a7e;
+      --accent: #a78bfa; --accent-hover: #8b6ee0; --accent-text: #1a1428;
+      --tag-bg: #1f1835; --modal-bg: #1f1835; --header-bg: #1f1835;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+    .header { background: var(--header-bg); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); transition: background 0.3s; }
+    .header h1 { font-size: 20px; color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .status-dot.offline { background: var(--danger); }
+    .theme-select { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font-size: 13px; cursor: pointer; outline: none; }
+    .theme-select:focus { border-color: var(--accent); }
+    .container { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 60px); }
+    .sidebar { background: var(--header-bg); padding: 16px; border-right: 1px solid var(--border); transition: background 0.3s; }
+    .nav-item { padding: 12px 16px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.2s, color 0.2s; }
+    .nav-item:hover { background: var(--bg-card-hover); }
+    .nav-item.active { background: var(--bg-card-hover); color: var(--accent); }
+    .content { padding: 24px; overflow-y: auto; }
+    .card { background: var(--bg-card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); transition: background 0.3s; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .card-title { font-size: 16px; font-weight: 600; color: var(--accent); }
+    .badge { background: var(--bg-card-hover); padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+    .badge.success { background: var(--success-bg); color: var(--success); }
+    .badge.warning { background: var(--warning-bg); color: var(--warning); }
+    .badge.error { background: var(--error-bg); color: var(--error-text); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .agent-card { background: var(--bg-card-hover); border-radius: 8px; padding: 16px; cursor: pointer; transition: transform 0.2s, background 0.3s; }
+    .agent-card:hover { transform: translateY(-2px); }
+    .agent-card.selected { border: 2px solid var(--accent); }
+    .agent-name { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+    .agent-model { font-size: 12px; color: var(--text-secondary); }
+    .agent-channels { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+    .channel-tag { background: var(--tag-bg); padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    .log-container { background: var(--bg-log); border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; transition: background 0.3s; }
+    .log-entry { padding: 4px 0; border-bottom: 1px solid var(--bg); }
+    .log-entry.info { color: var(--accent); }
+    .log-entry.warn { color: var(--warning); }
+    .log-entry.error { color: var(--error-text); }
+    .log-entry.debug { color: var(--text-secondary); }
+    .log-time { color: var(--text-muted); margin-right: 8px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: var(--bg-card-hover); border-radius: 8px; padding: 16px; text-align: center; transition: background 0.3s; }
+    .stat-value { font-size: 32px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .btn { background: var(--accent); color: var(--accent-text); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; }
+    .btn:hover { background: var(--accent-hover); }
+    .btn.danger { background: var(--danger); color: white; }
+    .btn.danger:hover { background: var(--danger-hover); }
+    .btn.small { padding: 4px 12px; font-size: 12px; }
+    .btn-secondary { background: var(--bg-card-hover); color: var(--text); }
+    .btn-secondary:hover { opacity: 0.8; }
+    .hidden { display: none !important; }
+    pre { background: var(--bg-log); padding: 12px; border-radius: 8px; overflow-x: auto; font-size: 12px; transition: background 0.3s; }
+    .tab-container { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; background: var(--bg-card-hover); transition: background 0.2s; }
+    .tab.active { background: var(--accent); color: var(--accent-text); }
+    #dashboard-view, #agents-view, #logs-view, #skills-view, #mcp-view { display: none; }
+    #dashboard-view.active, #agents-view.active, #logs-view.active, #skills-view.active, #mcp-view.active { display: block; }
+
+    /* Modal styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--modal-bg); border-radius: 12px; padding: 24px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); transition: background 0.3s; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-title { font-size: 18px; font-weight: 600; color: var(--accent); }
+    .modal-close { background: none; border: none; color: var(--text-secondary); font-size: 24px; cursor: pointer; }
+    .modal-close:hover { color: var(--text); }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--text-secondary); }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font-size: 14px; }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    .form-row { display: flex; gap: 16px; }
+    .form-row .form-group { flex: 1; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
+    /* Detail panel */
+    .detail-panel { background: var(--bg-card-hover); border-radius: 8px; padding: 16px; margin-top: 16px; transition: background 0.3s; }
+    .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .detail-title { font-size: 16px; font-weight: 600; }
+    .detail-actions { display: flex; gap: 8px; }
+    .detail-row { display: flex; padding: 8px 0; border-bottom: 1px solid var(--bg-card); }
+    .detail-label { width: 120px; color: var(--text-secondary); }
+    .detail-value { flex: 1; }
+    .detail-value.code { font-family: monospace; font-size: 12px; background: var(--bg-log); padding: 4px 8px; border-radius: 4px; }
+
+    /* Tag input */
+    .tag-input-container { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; background: var(--bg-input); border-radius: 6px; }
+    .tag-input { border: none; background: transparent; color: var(--text); font-size: 14px; outline: none; min-width: 100px; }
+    .tag { background: var(--tag-bg); padding: 4px 8px; border-radius: 4px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .tag-remove { cursor: pointer; color: var(--text-secondary); }
+    .tag-remove:hover { color: var(--danger); }
+
+    .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+    .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+    .empty-state p { margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Kamer</h1>
+    <div class="header-right">
+      <select class="theme-select" id="theme-select" onchange="setTheme(this.value)">
+        <option value="midnight">暗夜蓝</option>
+        <option value="emerald">翡翠绿</option>
+        <option value="sunset">落日橙</option>
+        <option value="light">极简白</option>
+        <option value="violet">紫罗兰</option>
+      </select>
+      <div class="status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <div class="nav-item active" data-view="dashboard">Dashboard</div>
+      <div class="nav-item" data-view="agents">Agents</div>
+      <div class="nav-item" data-view="skills">Skills</div>
+      <div class="nav-item" data-view="mcp">MCP Servers</div>
+      <div class="nav-item" data-view="logs">Logs</div>
+    </div>
+
+    <div class="content">
+      <!-- Dashboard View -->
+      <div id="dashboard-view" class="active">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-agents">-</div>
+            <div class="stat-label">Agents</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-channels">-</div>
+            <div class="stat-label">Channels</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-skills">-</div>
+            <div class="stat-label">Skills</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-mcp">-</div>
+            <div class="stat-label">MCP Servers</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Activity</div>
+          </div>
+          <div class="log-container" id="activity-log"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">System Info</div>
+          </div>
+          <pre id="system-info">Loading...</pre>
+        </div>
+      </div>
+
+      <!-- Agents View -->
+      <div id="agents-view">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Agent List</div>
+            <button class="btn" onclick="showAgentModal()">+ New Agent</button>
+          </div>
+          <div class="grid" id="agents-grid">Loading...</div>
+        </div>
+        <div id="agent-detail-panel" class="detail-panel hidden">
+          <div class="detail-header">
+            <div class="detail-title" id="detail-agent-name">Agent Details</div>
+            <div class="detail-actions">
+              <button class="btn btn-secondary small" onclick="editCurrentAgent()">Edit</button>
+              <button class="btn btn-danger small" onclick="deleteCurrentAgent()">Delete</button>
+            </div>
+          </div>
+          <div id="agent-detail-content"></div>
+        </div>
+      </div>
+
+      <!-- Skills View -->
+      <div id="skills-view">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Skills</div>
+            <button class="btn" onclick="showSkillModal()">+ New Skill</button>
+          </div>
+          <div class="grid" id="skills-grid">Loading...</div>
+        </div>
+        <div id="skill-detail-panel" class="detail-panel hidden">
+          <div class="detail-header">
+            <div class="detail-title" id="detail-skill-name">Skill Details</div>
+            <div class="detail-actions">
+              <button class="btn btn-secondary small" onclick="editCurrentSkill()">Edit</button>
+              <button class="btn btn-danger small" onclick="deleteCurrentSkill()">Delete</button>
+            </div>
+          </div>
+          <div id="skill-detail-content"></div>
+        </div>
+      </div>
+
+      <!-- MCP View -->
+      <div id="mcp-view">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">MCP Servers</div>
+            <button class="btn" onclick="showMcpModal()">+ New MCP Server</button>
+          </div>
+          <div id="mcp-list">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Logs View -->
+      <div id="logs-view">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Logs</div>
+            <div>
+              <button class="btn" id="clear-logs">Clear</button>
+            </div>
+          </div>
+          <div class="tab-container">
+            <div class="tab active" data-filter="all" onclick="filterLog('all')">All</div>
+            <div class="tab" data-filter="info" onclick="filterLog('info')">Info</div>
+            <div class="tab" data-filter="warn" onclick="filterLog('warn')">Warning</div>
+            <div class="tab" data-filter="error" onclick="filterLog('error')">Error</div>
+          </div>
+          <div class="log-container" id="logs-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agent Modal -->
+  <div id="agent-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="agent-modal-title">New Agent</div>
+        <button class="modal-close" onclick="closeAgentModal()">&times;</button>
+      </div>
+      <form id="agent-form" onsubmit="saveAgent(event)">
+        <input type="hidden" id="agent-original-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>ID</label>
+            <input type="text" id="agent-id" required placeholder="unique-agent-id">
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="agent-name" required placeholder="My Agent">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="agent-description" placeholder="A helpful assistant">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" id="agent-model" required placeholder="gpt-4o, MiniMax-M2.7">
+          </div>
+          <div class="form-group">
+            <label>Base URL (optional)</label>
+            <input type="text" id="agent-base-url" placeholder="https://api.openai.com/v1">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="agent-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label>System Prompt</label>
+          <textarea id="agent-system-prompt" placeholder="You are a helpful assistant...">You are a helpful assistant.</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Temperature</label>
+            <input type="number" id="agent-temperature" value="0.7" step="0.1" min="0" max="2">
+          </div>
+          <div class="form-group">
+            <label>Max Tokens</label>
+            <input type="number" id="agent-max-tokens" value="4096" min="100">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Channels</label>
+          <div class="tag-input-container" id="agent-channels-container">
+            <input type="text" class="tag-input" placeholder="Add channel..." onkeypress="handleChannelKeypress(event)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Skills</label>
+          <div class="tag-input-container" id="agent-skills-container">
+            <input type="text" class="tag-input" placeholder="Add skill..." onkeypress="handleSkillKeypress(event)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>MCP Servers</label>
+          <div class="tag-input-container" id="agent-mcp-container">
+            <input type="text" class="tag-input" placeholder="Add MCP server..." onkeypress="handleMcpKeypress(event)">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeAgentModal()">Cancel</button>
+          <button type="submit" class="btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Skill Modal -->
+  <div id="skill-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="skill-modal-title">New Skill</div>
+        <button class="modal-close" onclick="closeSkillModal()">&times;</button>
+      </div>
+      <form id="skill-form" onsubmit="saveSkill(event)">
+        <input type="hidden" id="skill-original-name">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="skill-name" required placeholder="my-skill">
+          </div>
+          <div class="form-group">
+            <label>Version</label>
+            <input type="text" id="skill-version" value="1.0.0" placeholder="1.0.0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="skill-description" required placeholder="What this skill does..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Content (SKILL.md)</label>
+          <textarea id="skill-content" style="min-height: 200px;" placeholder="# My Skill&#10;&#10;Describe what this skill does..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeSkillModal()">Cancel</button>
+          <button type="submit" class="btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MCP Modal -->
+  <div id="mcp-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="mcp-modal-title">New MCP Server</div>
+        <button class="modal-close" onclick="closeMcpModal()">&times;</button>
+      </div>
+      <form id="mcp-form" onsubmit="saveMcp(event)">
+        <input type="hidden" id="mcp-original-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>ID</label>
+            <input type="text" id="mcp-id" required placeholder="filesystem">
+          </div>
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="mcp-name" required placeholder="Filesystem Server">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Command</label>
+          <input type="text" id="mcp-command" required placeholder="npx">
+        </div>
+        <div class="form-group">
+          <label>Args (one per line)</label>
+          <textarea id="mcp-args" placeholder="-e&#10;server.js" style="min-height: 80px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Environment Variables (JSON)</label>
+          <input type="text" id="mcp-env" placeholder='{"KEY": "value"}'>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeMcpModal()">Cancel</button>
+          <button type="submit" class="btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    let logs = [];
+    let currentLogFilter = 'all';
+    let currentAgent = null;
+    let currentSkill = null;
+    let agentChannels = [];
+    let agentSkills = [];
+    let agentMcp = [];
+
+    // Tag handling
+    function addTag(container, value) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.innerHTML = `${escapeHtml(value)}<span class="tag-remove" onclick="removeTag(this, '${container.id}')">&times;</span>`;
+      tag.dataset.value = value;
+      container.insertBefore(tag, container.querySelector('.tag-input'));
+    }
+
+    function removeTag(el, containerId) {
+      el.parentElement.remove();
+    }
+
+    function getTags(container) {
+      return Array.from(container.querySelectorAll('.tag')).map(t => t.dataset.value);
+    }
+
+    function handleChannelKeypress(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val) addTag(e.target.parentElement, val);
+        e.target.value = '';
+      }
+    }
+    function handleSkillKeypress(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val) addTag(e.target.parentElement, val);
+        e.target.value = '';
+      }
+    }
+    function handleMcpKeypress(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val) addTag(e.target.parentElement, val);
+        e.target.value = '';
+      }
+    }
+
+    async function api(endpoint, options = {}) {
+      try {
+        const res = await fetch(API_BASE + endpoint, options);
+        return await res.json();
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    function showView(view) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('[id$="-view"]').forEach(el => el.classList.remove('active'));
+      document.getElementById(view + '-view').classList.add('active');
+      document.querySelector('[data-view="' + view + '"]').classList.add('active');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function checkStatus() {
+      try {
+        await fetch(API_BASE + '/');
+        document.getElementById('status-dot').classList.remove('offline');
+        document.getElementById('status-text').textContent = 'Running';
+      } catch {
+        document.getElementById('status-dot').classList.add('offline');
+        document.getElementById('status-text').textContent = 'Offline';
+      }
+    }
+
+    async function loadDashboard() {
+      const [agents, channels, skills, mcp] = await Promise.all([
+        api('/agents'),
+        api('/channels'),
+        api('/skills'),
+        api('/mcp')
+      ]);
+
+      document.getElementById('stat-agents').textContent = Array.isArray(agents) ? agents.length : 0;
+      document.getElementById('stat-channels').textContent = Array.isArray(channels) ? channels.length : 0;
+      document.getElementById('stat-skills').textContent = Array.isArray(skills) ? skills.length : 0;
+      document.getElementById('stat-mcp').textContent = Array.isArray(mcp) ? mcp.length : 0;
+
+      const info = { version: '0.1.0', timestamp: new Date().toISOString() };
+      document.getElementById('system-info').textContent = JSON.stringify(info, null, 2);
+
+      const activityEl = document.getElementById('activity-log');
+      if (Array.isArray(agents) && agents.length > 0) {
+        activityEl.innerHTML = agents.map(a =>
+          '<div class="log-entry info">Agent: ' + escapeHtml(a.name || 'Unknown') + ' (' + escapeHtml(a.model || 'Unknown') + ')</div>'
+        ).join('');
+      }
+    }
+
+    // ==================== AGENTS ====================
+    async function loadAgents() {
+      const data = await api('/agents');
+      const grid = document.getElementById('agents-grid');
+
+      if (data.error || !Array.isArray(data)) {
+        grid.innerHTML = '<div class="log-entry error">Failed: ' + escapeHtml(data.error) + '</div>';
+        return;
+      }
+
+      if (data.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><p>No Agents</p><button class="btn" onclick="showAgentModal()">Create First Agent</button></div>';
+        return;
+      }
+
+      grid.innerHTML = data.map(a => {
+        const name = escapeHtml(a.name || 'Unknown');
+        const model = escapeHtml(a.model || 'Unknown');
+        const channels = (a.channels || []).map(c => '<span class="channel-tag">' + escapeHtml(c) + '</span>').join('');
+        const skills = (a.skills || []).slice(0, 3).join(', ');
+        const selected = currentAgent && currentAgent.id === a.id ? 'selected' : '';
+        return '<div class="agent-card ' + selected + '" onclick="selectAgent(\'' + escapeHtml(a.id) + ')"><div class="agent-name">' + name + '</div><div class="agent-model">' + model + '</div><div style="font-size:11px;color:#888;margin-top:4px;">Skills: ' + (skills || 'none') + '</div><div class="agent-channels">' + channels + '</div></div>';
+      }).join('');
+    }
+
+    async function selectAgent(id) {
+      const data = await api('/agents/' + id);
+      if (data.error) { alert(data.error); return; }
+      currentAgent = data;
+      document.getElementById('agent-detail-panel').classList.remove('hidden');
+      document.getElementById('detail-agent-name').textContent = data.name;
+      document.getElementById('agent-detail-content').innerHTML = `
+        <div class="detail-row"><div class="detail-label">ID</div><div class="detail-value">${escapeHtml(data.id)}</div></div>
+        <div class="detail-row"><div class="detail-label">Model</div><div class="detail-value">${escapeHtml(data.model)}</div></div>
+        <div class="detail-row"><div class="detail-label">Base URL</div><div class="detail-value">${escapeHtml(data.baseUrl || 'default')}</div></div>
+        <div class="detail-row"><div class="detail-label">Channels</div><div class="detail-value">${(data.channels || []).map(c => '<span class="channel-tag">' + escapeHtml(c) + '</span>').join(' ')}</div></div>
+        <div class="detail-row"><div class="detail-label">Skills</div><div class="detail-value">${(data.skills || []).join(', ') || 'none'}</div></div>
+        <div class="detail-row"><div class="detail-label">MCP Servers</div><div class="detail-value">${(data.mcpServers || []).join(', ') || 'none'}</div></div>
+        <div class="detail-row"><div class="detail-label">System Prompt</div><div class="detail-value code">${escapeHtml(data.systemPrompt || '').substring(0, 200)}...</div></div>
+      `;
+      loadAgents();
+    }
+
+    function showAgentModal(agent = null) {
+      document.getElementById('agent-modal-title').textContent = agent ? 'Edit Agent' : 'New Agent';
+      document.getElementById('agent-original-id').value = agent?.id || '';
+      document.getElementById('agent-id').value = agent?.id || '';
+      document.getElementById('agent-id').disabled = !!agent;
+      document.getElementById('agent-name').value = agent?.name || '';
+      document.getElementById('agent-description').value = agent?.description || '';
+      document.getElementById('agent-model').value = agent?.model || '';
+      document.getElementById('agent-base-url').value = agent?.baseUrl || '';
+      document.getElementById('agent-api-key').value = agent?.apiKey || '';
+      document.getElementById('agent-system-prompt').value = agent?.systemPrompt || 'You are a helpful assistant.';
+      document.getElementById('agent-temperature').value = agent?.temperature || 0.7;
+      document.getElementById('agent-max-tokens').value = agent?.maxTokens || 4096;
+
+      // Reset tags
+      ['agent-channels-container', 'agent-skills-container', 'agent-mcp-container'].forEach(id => {
+        const container = document.getElementById(id);
+        container.querySelectorAll('.tag').forEach(t => t.remove());
+        if (id === 'agent-channels-container') (agent?.channels || []).forEach(v => addTag(container, v));
+        if (id === 'agent-skills-container') (agent?.skills || []).forEach(v => addTag(container, v));
+        if (id === 'agent-mcp-container') (agent?.mcpServers || []).forEach(v => addTag(container, v));
+      });
+
+      document.getElementById('agent-modal').classList.remove('hidden');
+    }
+
+    function closeAgentModal() {
+      document.getElementById('agent-modal').classList.add('hidden');
+    }
+
+    async function saveAgent(e) {
+      e.preventDefault();
+      const originalId = document.getElementById('agent-original-id').value;
+      const agent = {
+        id: document.getElementById('agent-id').value,
+        name: document.getElementById('agent-name').value,
+        description: document.getElementById('agent-description').value,
+        model: document.getElementById('agent-model').value,
+        baseUrl: document.getElementById('agent-base-url').value,
+        apiKey: document.getElementById('agent-api-key').value,
+        systemPrompt: document.getElementById('agent-system-prompt').value,
+        temperature: parseFloat(document.getElementById('agent-temperature').value),
+        maxTokens: parseInt(document.getElementById('agent-max-tokens').value),
+        channels: getTags(document.getElementById('agent-channels-container')),
+        skills: getTags(document.getElementById('agent-skills-container')),
+        mcpServers: getTags(document.getElementById('agent-mcp-container')),
+      };
+
+      const method = originalId ? 'PUT' : 'POST';
+      const endpoint = originalId ? '/agents/' + originalId : '/agents';
+      const result = await api(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(agent) });
+
+      if (result.error) { alert(result.error); return; }
+      closeAgentModal();
+      loadAgents();
+    }
+
+    function editCurrentAgent() {
+      if (!currentAgent) return;
+      showAgentModal(currentAgent);
+    }
+
+    async function deleteCurrentAgent() {
+      if (!currentAgent) return;
+      if (!confirm('Delete agent ' + currentAgent.name + '?')) return;
+      const result = await api('/agents/' + currentAgent.id, { method: 'DELETE' });
+      if (result.error) { alert(result.error); return; }
+      currentAgent = null;
+      document.getElementById('agent-detail-panel').classList.add('hidden');
+      loadAgents();
+    }
+
+    // ==================== SKILLS ====================
+    async function loadSkills() {
+      const data = await api('/skills');
+      const grid = document.getElementById('skills-grid');
+
+      if (data.error || !Array.isArray(data)) {
+        grid.innerHTML = '<div class="log-entry error">Failed: ' + escapeHtml(data.error) + '</div>';
+        return;
+      }
+
+      if (data.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><p>No Skills</p><button class="btn" onclick="showSkillModal()">Create First Skill</button></div>';
+        return;
+      }
+
+      grid.innerHTML = data.map(s => {
+        const name = escapeHtml(s.name || 'Unknown');
+        const desc = escapeHtml(s.description || 'No description');
+        const version = escapeHtml(s.version || '1.0');
+        const selected = currentSkill && currentSkill.name === s.name ? 'selected' : '';
+        return '<div class="agent-card ' + selected + '" onclick="selectSkill(\'' + escapeHtml(s.name) + '\')"><div class="agent-name">' + name + '</div><div class="agent-model">' + desc + '</div><div style="margin-top:8px;"><span class="badge">v' + version + '</span></div></div>';
+      }).join('');
+    }
+
+    async function selectSkill(name) {
+      const data = await api('/skills/' + encodeURIComponent(name));
+      if (data.error) { alert(data.error); return; }
+      currentSkill = data;
+      document.getElementById('skill-detail-panel').classList.remove('hidden');
+      document.getElementById('detail-skill-name').textContent = data.name;
+      document.getElementById('skill-detail-content').innerHTML = `
+        <div class="detail-row"><div class="detail-label">Version</div><div class="detail-value">${escapeHtml(data.version)}</div></div>
+        <div class="detail-row"><div class="detail-label">Description</div><div class="detail-value">${escapeHtml(data.description)}</div></div>
+      `;
+      loadSkills();
+    }
+
+    function showSkillModal(skill = null) {
+      document.getElementById('skill-modal-title').textContent = skill ? 'Edit Skill' : 'New Skill';
+      document.getElementById('skill-original-name').value = skill?.name || '';
+      document.getElementById('skill-name').value = skill?.name || '';
+      document.getElementById('skill-version').value = skill?.version || '1.0.0';
+      document.getElementById('skill-description').value = skill?.description || '';
+      document.getElementById('skill-content').value = skill?.content || '';
+      document.getElementById('skill-modal').classList.remove('hidden');
+    }
+
+    function closeSkillModal() {
+      document.getElementById('skill-modal').classList.add('hidden');
+    }
+
+    async function saveSkill(e) {
+      e.preventDefault();
+      const originalName = document.getElementById('skill-original-name').value;
+      const skill = {
+        name: document.getElementById('skill-name').value,
+        version: document.getElementById('skill-version').value,
+        description: document.getElementById('skill-description').value,
+        content: document.getElementById('skill-content').value,
+      };
+
+      const method = originalName ? 'PUT' : 'POST';
+      const endpoint = originalName ? '/skills/' + encodeURIComponent(originalName) : '/skills';
+      const result = await api(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(skill) });
+
+      if (result.error) { alert(result.error); return; }
+      closeSkillModal();
+      loadSkills();
+    }
+
+    function editCurrentSkill() {
+      if (!currentSkill) return;
+      showSkillModal(currentSkill);
+    }
+
+    async function deleteCurrentSkill() {
+      if (!currentSkill) return;
+      if (!confirm('Delete skill ' + currentSkill.name + '?')) return;
+      const result = await api('/skills/' + encodeURIComponent(currentSkill.name), { method: 'DELETE' });
+      if (result.error) { alert(result.error); return; }
+      currentSkill = null;
+      document.getElementById('skill-detail-panel').classList.add('hidden');
+      loadSkills();
+    }
+
+    // ==================== MCP ====================
+    async function loadMcp() {
+      const data = await api('/mcp');
+      const el = document.getElementById('mcp-list');
+
+      if (data.error || !Array.isArray(data)) {
+        el.innerHTML = '<div class="log-entry error">Failed: ' + escapeHtml(data.error) + '</div>';
+        return;
+      }
+
+      if (data.length === 0) {
+        el.innerHTML = '<div class="empty-state"><p>No MCP Servers</p><button class="btn" onclick="showMcpModal()">Add First MCP Server</button></div>';
+        return;
+      }
+
+      el.innerHTML = data.map(s => {
+        const name = escapeHtml(s.config?.name || s.id || 'Unknown');
+        const id = escapeHtml(s.id || 'Unknown');
+        const status = escapeHtml(s.status || 'unknown');
+        const statusClass = s.status === 'connected' ? 'success' : 'error';
+        const toolCount = s.tools?.length || 0;
+        return '<div style="margin-bottom: 16px; padding: 16px; background: #0f3460; border-radius: 8px;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:600;margin-bottom:4px;">' + name + '</div><div style="font-size:12px;color:#888;">ID: ' + id + ' | Tools: ' + toolCount + '</div></div><div style="display:flex;gap:8px;align-items:center;"><span class="badge ' + statusClass + '">' + status + '</span><button class="btn btn-secondary small" onclick="editMcp(\'' + id + '\')">Edit</button><button class="btn btn-danger small" onclick="deleteMcp(\'' + id + '\')">Delete</button></div></div></div>';
+      }).join('');
+    }
+
+    async function editMcp(id) {
+      const servers = await api('/mcp');
+      const server = servers.find(s => s.id === id);
+      if (server) showMcpModal(server);
+    }
+
+    async function deleteMcp(id) {
+      if (!confirm('Delete MCP server ' + id + '?')) return;
+      const result = await api('/mcp/' + id, { method: 'DELETE' });
+      if (result.error) { alert(result.error); return; }
+      loadMcp();
+    }
+
+    function showMcpModal(server = null) {
+      document.getElementById('mcp-modal-title').textContent = server ? 'Edit MCP Server' : 'New MCP Server';
+      document.getElementById('mcp-original-id').value = server?.id || '';
+      document.getElementById('mcp-id').value = server?.id || '';
+      document.getElementById('mcp-id').disabled = !!server;
+      document.getElementById('mcp-name').value = server?.config?.name || '';
+      document.getElementById('mcp-command').value = server?.config?.command || '';
+      document.getElementById('mcp-args').value = (server?.config?.args || []).join('\n');
+      document.getElementById('mcp-env').value = server?.config?.env ? JSON.stringify(server.config.env) : '';
+      document.getElementById('mcp-modal').classList.remove('hidden');
+    }
+
+    function closeMcpModal() {
+      document.getElementById('mcp-modal').classList.add('hidden');
+    }
+
+    async function saveMcp(e) {
+      e.preventDefault();
+      const originalId = document.getElementById('mcp-original-id').value;
+      const mcp = {
+        id: document.getElementById('mcp-id').value,
+        name: document.getElementById('mcp-name').value,
+        command: document.getElementById('mcp-command').value,
+        args: document.getElementById('mcp-args').value.split('\n').filter(s => s.trim()),
+        env: document.getElementById('mcp-env').value ? JSON.parse(document.getElementById('mcp-env').value) : undefined,
+      };
+
+      const method = originalId ? 'PUT' : 'POST';
+      const endpoint = originalId ? '/mcp/' + originalId : '/mcp';
+      const result = await api(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mcp) });
+
+      if (result.error) { alert(result.error); return; }
+      closeMcpModal();
+      loadMcp();
+    }
+
+    // ==================== LOGS ====================
+    function addLog(type, message) {
+      const time = new Date().toLocaleTimeString();
+      logs.unshift({ type, message, time });
+      if (logs.length > 100) logs.pop();
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const filtered = currentLogFilter === 'all' ? logs : logs.filter(l => l.type === currentLogFilter);
+      const container = document.getElementById('logs-container');
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="log-entry info">No logs</div>';
+        return;
+      }
+      container.innerHTML = filtered.map(l =>
+        '<div class="log-entry ' + escapeHtml(l.type) + '"><span class="log-time">' + escapeHtml(l.time) + '</span>' + escapeHtml(l.message) + '</div>'
+      ).join('');
+    }
+
+    function filterLog(type) {
+      currentLogFilter = type;
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.querySelector('.tab[data-filter="' + type + '"]').classList.add('active');
+      renderLogs();
+    }
+
+    function clearLogs() {
+      logs = [];
+      renderLogs();
+    }
+
+    async function loadViewData(view) {
+      switch (view) {
+        case 'dashboard': loadDashboard(); break;
+        case 'agents': loadAgents(); break;
+        case 'skills': loadSkills(); break;
+        case 'mcp': loadMcp(); break;
+      }
+    }
+
+    // Event listeners
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.addEventListener('click', () => {
+        showView(el.dataset.view);
+        loadViewData(el.dataset.view);
+      });
+    });
+
+    document.getElementById('clear-logs').addEventListener('click', clearLogs);
+
+    // ==================== THEME ====================
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.getElementById('theme-select').value = theme;
+      localStorage.setItem('kamer-theme', theme);
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem('kamer-theme') || 'midnight';
+      setTheme(saved);
+    }
+
+    // Initialize
+    initTheme();
+    checkStatus();
+    loadDashboard();
+    loadAgents();
+    loadSkills();
+    loadMcp();
+
+    // Add some initial log entries
+    addLog('info', 'Kamer initialized');
+    addLog('info', 'Use the sidebar to navigate');
+
+    setInterval(() => {
+      checkStatus();
+      loadDashboard();
+    }, 5000);
+  </script>
+</body>
+</html>

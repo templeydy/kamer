@@ -14,6 +14,7 @@ describe('AgentBrain', () => {
     systemPrompt: 'You are a helpful assistant.',
     skills: [],
     mcpServers: [],
+    channels: ['terminal'],
     temperature: 0.7,
     maxTokens: 4096,
   };
@@ -35,7 +36,7 @@ describe('AgentBrain', () => {
   it('should create agent brain instance', () => {
     const brain = new AgentBrain(
       mockAgent,
-      vi.fn(),
+      vi.fn() as unknown as any,
       mockEmbeddingService,
       mockSkillEngine,
       mockMCPClient
@@ -46,7 +47,7 @@ describe('AgentBrain', () => {
   it('should get agent info', () => {
     const brain = new AgentBrain(
       mockAgent,
-      vi.fn(),
+      vi.fn() as unknown as any,
       mockEmbeddingService,
       mockSkillEngine,
       mockMCPClient

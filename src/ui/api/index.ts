@@ -1,16 +1,19 @@
 import { Hono } from 'hono';
-import { agentsRouter } from './routes/agents';
-import { skillsRouter } from './routes/skills';
-import { mcpRouter } from './routes/mcp';
-import { channelsRouter } from './routes/channels';
+import { createAgentsRouter } from './routes/agents';
+import { createSkillsRouter } from './routes/skills';
+import { createMcpRouter } from './routes/mcp';
+import { createChannelsRouter } from './routes/channels';
+import type { Runtime } from '../../core/runtime';
 
-const app = new Hono();
+export function createApiRouter(runtime: Runtime): Hono {
+  const app = new Hono();
 
-app.route('/agents', agentsRouter);
-app.route('/skills', skillsRouter);
-app.route('/mcp', mcpRouter);
-app.route('/channels', channelsRouter);
+  app.route('/agents', createAgentsRouter(runtime));
+  app.route('/skills', createSkillsRouter(runtime));
+  app.route('/mcp', createMcpRouter(runtime));
+  app.route('/channels', createChannelsRouter(runtime));
 
-app.get('/', (c) => c.text('Agent Framework API'));
+  app.get('/', (c) => c.text('Kamer API'));
 
-export default app;
+  return app;
+}

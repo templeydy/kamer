@@ -32,7 +32,7 @@ export class FeishuChannel extends ChannelAdapter {
       appID: this.config.appId,
       appSecret: this.config.appSecret,
       logger: console,
-    });
+    } as any);
 
     // Register message handler
     this.eventDispatcher.register({
@@ -48,7 +48,7 @@ export class FeishuChannel extends ChannelAdapter {
       appSecret: this.config.appSecret,
       eventDispatcher: this.eventDispatcher,
       logger: console,
-    });
+    } as any);
 
     // Start WebSocket connection
     this.wsClient.start({ eventDispatcher: this.eventDispatcher });
@@ -110,7 +110,7 @@ export class FeishuChannel extends ChannelAdapter {
   async showThinking(messageId: string): Promise<string | undefined> {
     if (!this.client) return;
     try {
-      const reactionId = await this.client.im.message.addReaction(messageId, '🤔');
+      const reactionId = await (this.client.im.message as any).addReaction(messageId, '🤔');
       return reactionId;
     } catch (e) {
       console.error('Failed to add reaction:', e);
@@ -123,10 +123,10 @@ export class FeishuChannel extends ChannelAdapter {
     if (!this.client) return;
     try {
       if (reactionId) {
-        await this.client.im.message.removeReaction(messageId, reactionId);
+        await (this.client.im.message as any).removeReaction(messageId, reactionId);
       } else {
         // 如果没有 reactionId，用 emoji 类型删除
-        await this.client.im.message.removeReactionByEmoji(messageId, '🤔');
+        await (this.client.im.message as any).removeReactionByEmoji(messageId, '🤔');
       }
     } catch (e) {
       console.error('Failed to remove reaction:', e);
