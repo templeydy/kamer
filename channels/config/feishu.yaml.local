@@ -1,4 +1,0 @@
-feishu:
-  appId: cli_aa905f94c3799beb
-  appSecret: lxMtDmdSpg0mSjMfc7sNwcu5mTWDsaEO
-  webhookUrl: ""  # 需要在飞书开放平台配置机器人后获取
